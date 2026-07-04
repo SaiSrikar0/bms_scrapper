@@ -13,7 +13,12 @@ from playwright.sync_api import sync_playwright
 # pyrefly: ignore [missing-import]
 from playwright_stealth import Stealth
 # pyrefly: ignore [missing-import]
+from dotenv import load_dotenv
+# pyrefly: ignore [missing-import]
 from apscheduler.schedulers.blocking import BlockingScheduler
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Scraper Settings
 DEFAULT_URL = "https://in.bookmyshow.com/movies/hyderabad/spider-man-brand-new-day/buytickets/ET00502600/20260730"
