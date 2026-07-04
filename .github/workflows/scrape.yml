@@ -50,7 +50,7 @@ jobs:
         if [ ! -f seen_slots.json ]; then
           echo '[]' > seen_slots.json
         fi
-        git add seen_slots.json
+        git add -f seen_slots.json
         # Commit only if seen_slots.json has changes, to avoid empty commits
         if git diff-index --quiet HEAD -- seen_slots.json; then
           echo "No new time slots changes to commit."
