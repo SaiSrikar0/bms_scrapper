@@ -3,7 +3,7 @@ import re
 import json
 import os
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 # pyrefly: ignore [missing-import]
 import requests
 # pyrefly: ignore [missing-import]
@@ -17,7 +17,12 @@ from dotenv import load_dotenv
 # pyrefly: ignore [missing-import]
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-# Load environment variables from .env file
+# IST timezone (UTC+5:30)
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def now_ist():
+    return datetime.now(IST)
+
 load_dotenv()
 
 # Scraper Settings
@@ -35,7 +40,7 @@ def load_seen_slots():
             with open(SEEN_SLOTS_FILE, "r", encoding="utf-8") as f:
                 return set(json.load(f))
         except Exception as e:
-            print(f"[{datetime.now()}] Warning: Failed to load seen slots file: {e}")
+            print(f"[{now_ist()}] Warning: Failed to load seen slots file: {e}")
     return set()
 
 def save_seen_slots(seen_slots):
@@ -44,33 +49,29 @@ def save_seen_slots(seen_slots):
         with open(SEEN_SLOTS_FILE, "w", encoding="utf-8") as f:
             json.dump(list(seen_slots), f, indent=4)
     except Exception as e:
-        print(f"[{datetime.now()}] Error saving seen slots: {e}")
+        print(f"[{now_ist()}] Error saving seen slots: {e}")
 
 def send_telegram_message(message):
     """Sends any message to Telegram."""
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
-        print(f"[{datetime.now()}] Telegram not configured. Skipping notification.")
+        print(f"[{now_ist()}] Telegram not configured. Skipping notification.")
         return
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
     try:
         response = requests.post(url, json=payload, timeout=15)
         if response.status_code == 200:
-            print(f"[{datetime.now()}] Telegram message sent successfully.")
+            print(f"[{now_ist()}] Telegram message sent successfully.")
         else:
-            print(f"[{datetime.now()}] Failed to send Telegram message: {response.text}")
+            print(f"[{now_ist()}] Failed to send Telegram message: {response.text}")
     except Exception as e:
-        print(f"[{datetime.now()}] Exception sending Telegram message: {e}")
+        print(f"[{now_ist()}] Exception sending Telegram message: {e}")
 
 def scrape_bms(url=DEFAULT_URL):
     """Scrapes BookMyShow showtimes, filters by keywords, and detects new slots."""
-    now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
-    print(f"\n[{datetime.now()}] Starting BookMyShow scrape execution...")
-    
-    # Always notify that the scraper ran
-    send_telegram_message(f"🤖 *BMS Scraper ran* at {now_str}")
+    print(f"\n[{now_ist()}] Starting BookMyShow scrape execution...")
     
     seen_slots = load_seen_slots()
     new_slots_found = []
@@ -84,21 +85,21 @@ def scrape_bms(url=DEFAULT_URL):
         page = context.new_page()
 
         try:
-            print(f"[{datetime.now()}] Loading tickets page: {url}")
+            print(f"[{now_ist()}] Loading tickets page: {url}")
             page.goto(url, wait_until="domcontentloaded", timeout=60000)
             
             # Wait for JS to finish rendering the state
             page.wait_for_timeout(8000)
             
             # Debug: print current URL (BMS may redirect to a bot-check page)
-            print(f"[{datetime.now()}] Current page URL: {page.url}")
+            print(f"[{now_ist()}] Current page URL: {page.url}")
             
             html_content = page.content()
             
             # Extract JSON state
             match = re.search(r"window\.__INITIAL_STATE__\s*=\s*(\{.*\});?", html_content)
             if not match:
-                print(f"[{datetime.now()}] Error: Could not find window.__INITIAL_STATE__ in page source.")
+                print(f"[{now_ist()}] Error: Could not find window.__INITIAL_STATE__ in page source.")
                 return
 
             state_data = json.loads(match.group(1))
@@ -114,10 +115,10 @@ def scrape_bms(url=DEFAULT_URL):
                 # Fallback to the first available date key in showDates
                 available_dates = list(show_dates_dict.keys())
                 if not available_dates:
-                    print(f"[{datetime.now()}] Warning: No show dates found in state data.")
+                    print(f"[{now_ist()}] Warning: No show dates found in state data.")
                     return
                 date_code = available_dates[0]
-                print(f"[{datetime.now()}] Using available date code: {date_code}")
+                print(f"[{now_ist()}] Using available date code: {date_code}")
             
             day_data = show_dates_dict[date_code]
             venues_dict = day_data.get("primaryStatic", {}).get("data", {}).get("venues", {})
@@ -131,7 +132,7 @@ def scrape_bms(url=DEFAULT_URL):
                     break
 
             if not group_list_widget:
-                print(f"[{datetime.now()}] Error: Could not locate groupList widget in showtime data.")
+                print(f"[{now_ist()}] Error: Could not locate groupList widget in showtime data.")
                 return
 
             venues_list = group_list_widget.get("data", [])[0].get("data", [])
@@ -195,7 +196,7 @@ def scrape_bms(url=DEFAULT_URL):
 
             # Highlight and alert new slots
             if new_slots_found:
-                print(f"\n*** [{datetime.now()}] NEW TIME SLOTS OPENED! ***")
+                print(f"\n*** [{now_ist()}] NEW TIME SLOTS OPENED! ***")
                 for venue_name, detail in new_slots_found:
                     print(f"  [{venue_name}] {detail}")
                 print("****************************************")
@@ -206,17 +207,18 @@ def scrape_bms(url=DEFAULT_URL):
                     alert_msg += f"📍 *{venue_name}*\n  {detail}\n\n"
                 send_telegram_message(alert_msg)
             else:
-                print(f"\n[{datetime.now()}] No new time slots detected.")
-                send_telegram_message("😴 *Nothing new* — no new slots found.")
+                print(f"\n[{now_ist()}] No new time slots detected.")
+                time_str = now_ist().strftime("%d %b %Y, %I:%M %p IST")
+                send_telegram_message(f"😴 *Nothing new* — checked at {time_str}")
 
             # Save the updated seen slots list
             save_seen_slots(all_current_slots)
 
         except Exception as e:
-            print(f"[{datetime.now()}] Scraping exception encountered: {e}")
+            print(f"[{now_ist()}] Scraping exception encountered: {e}")
         finally:
             browser.close()
-            print(f"[{datetime.now()}] Scrape execution finished.\n")
+            print(f"[{now_ist()}] Scrape execution finished.\n")
 
 def main():
     parser = argparse.ArgumentParser(description="BookMyShow Theatre and Showtime Scraper")
@@ -225,7 +227,7 @@ def main():
     args = parser.parse_args()
 
     if args.schedule:
-        print(f"[{datetime.now()}] Starting scheduler to check every 1 hour...")
+        print(f"[{now_ist()}] Starting scheduler to check every 1 hour...")
         scheduler = BlockingScheduler()
         # Run immediately on start
         scrape_bms(args.url)
@@ -234,7 +236,7 @@ def main():
         try:
             scheduler.start()
         except (KeyboardInterrupt, SystemExit):
-            print(f"\n[{datetime.now()}] Scheduler stopped.")
+            print(f"\n[{now_ist()}] Scheduler stopped.")
     else:
         scrape_bms(args.url)
 
