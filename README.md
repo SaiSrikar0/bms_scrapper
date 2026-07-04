@@ -37,9 +37,9 @@ python web_scrapper.py
 ```
 
 ### Run in Scheduled Mode
-To run checks immediately and repeat the query **every 1 hour**:
+To run checks immediately and repeat the query periodically (e.g., every 10 minutes):
 ```bash
-python web_scrapper.py --schedule
+python web_scrapper.py --schedule --interval 10
 ```
 
 ### Custom URL Option
@@ -52,8 +52,6 @@ python web_scrapper.py --schedule
 
 ## Cloud Deployment & Automation (GitHub Actions)
 
-You can automate this script to run **every hour for free** in the cloud using GitHub Actions, ensuring you receive alerts even when your computer is off.
-
 ### Step 1: Add GitHub Repository Secrets
 For Telegram notifications to work, you must add your Telegram configuration as secrets to your GitHub repository:
 1. Go to your repository on GitHub.
@@ -63,7 +61,33 @@ For Telegram notifications to work, you must add your Telegram configuration as 
    - `TELEGRAM_CHAT_ID`: Your Telegram Chat ID or group chat ID where the bot should send the messages.
 
 ### Step 2: Push changes to GitHub
-Once pushed to GitHub, the workflow in `.github/workflows/scrape.yml` will automatically:
-- Execute every hour.
-- Send a Telegram notification if any new slot opens.
-- Commit the updated `seen_slots.json` back to your repo to prevent duplicate alerts.
+Once pushed to GitHub, the workflow in `.github/workflows/scrape.yml` will automatically support execution.
+
+### Step 3: Set up reliable 10-Minute Cloud Scheduling (Highly Recommended)
+GitHub Actions' native scheduler is often delayed by 30-90 minutes. To make it run precisely every 10 minutes, you can trigger it using a free external scheduler like **cron-job.org**:
+
+1. **Create a GitHub Personal Access Token (PAT)**:
+   - Go to your GitHub account settings -> **Developer settings** -> **Personal Access Tokens** -> **Tokens (classic)**.
+   - Click **Generate new token (classic)**.
+   - Give it a name (e.g., `bms-scraper-trigger`), select the **`repo`** (or `public_repo` if public) scope, and generate it.
+   - Copy the token immediately.
+
+2. **Configure cron-job.org**:
+   - Create a free account at [cron-job.org](https://cron-job.org).
+   - Go to **Cronjobs** and click **Create Cronjob**.
+   - Set the details:
+     - **Title**: `BookMyShow 10m Scraper`
+     - **Address (URL)**: `https://api.github.com/repos/SaiSrikar0/bms_scrapper/dispatches`
+     - **Request Method**: `POST`
+     - **Schedule**: `Every 10 minutes` (User-defined -> custom or pre-set)
+   - Under **Headers**, click **Add Header** to add three headers:
+     1. Key: `Authorization`, Value: `Bearer <YOUR_GITHUB_PAT>` (replace `<YOUR_GITHUB_PAT>` with your copied token)
+     2. Key: `Accept`, Value: `application/vnd.github.v3+json`
+     3. Key: `User-Agent`, Value: `cron-job-org`
+   - Under **Body**, choose **Raw / JSON** and enter:
+     ```json
+     {
+       "event_type": "trigger_scrape"
+     }
+     ```
+   - Click **Create**. It will now trigger your scraper workflow precisely every 10 minutes!

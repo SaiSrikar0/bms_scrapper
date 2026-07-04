@@ -222,17 +222,18 @@ def scrape_bms(url=DEFAULT_URL):
 
 def main():
     parser = argparse.ArgumentParser(description="BookMyShow Theatre and Showtime Scraper")
-    parser.add_argument("--schedule", action="store_true", help="Run in scheduled mode (every 1 hour)")
+    parser.add_argument("--schedule", action="store_true", help="Run in scheduled mode")
+    parser.add_argument("--interval", type=int, default=10, help="Scheduler interval in minutes (default: 10)")
     parser.add_argument("--url", type=str, default=DEFAULT_URL, help="Custom BookMyShow tickets URL to scrape")
     args = parser.parse_args()
 
     if args.schedule:
-        print(f"[{now_ist()}] Starting scheduler to check every 1 hour...")
+        print(f"[{now_ist()}] Starting scheduler to check every {args.interval} minutes...")
         scheduler = BlockingScheduler()
         # Run immediately on start
         scrape_bms(args.url)
-        # Schedule to run every hour (3600 seconds)
-        scheduler.add_job(scrape_bms, 'interval', hours=1, args=[args.url])
+        # Schedule to run every specified interval in minutes
+        scheduler.add_job(scrape_bms, 'interval', minutes=args.interval, args=[args.url])
         try:
             scheduler.start()
         except (KeyboardInterrupt, SystemExit):

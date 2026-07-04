@@ -6,6 +6,8 @@ on:
     - cron: '*/10 * * * *'
   workflow_dispatch:
     # Allows manual triggering from the Actions tab
+  repository_dispatch:
+    types: [trigger_scrape]
 
 permissions:
   contents: write

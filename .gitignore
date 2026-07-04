@@ -3,3 +3,4 @@ __pycache__/
 *.py[cod]
 seen_slots.json
 bms_page.html
+*_logs.txt
