@@ -37,12 +37,26 @@ jobs:
       run: |
         playwright install --with-deps chromium
 
+    - name: Install and configure Cloudflare WARP SOCKS5 Proxy
+      run: |
+        curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+        sudo apt-get update && sudo apt-get install cloudflare-warp -y
+        # Configure SOCKS5 proxy mode (listens on 127.0.0.1:40000 by default)
+        warp-cli --accept-tos mode proxy
+        warp-cli --accept-tos registration new
+        warp-cli --accept-tos connect
+        # Wait for the tunnel connection to establish
+        sleep 5
+        # Verify proxy configuration
+        curl --socks5 127.0.0.1:40000 -s https://www.cloudflare.com/cdn-cgi/trace | grep warp || true
+
     - name: Run Scraper
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
-        python web_scrapper.py || true
+        python web_scrapper.py --proxy "socks5://127.0.0.1:40000" || true
 
     - name: Commit and Push Changes
       run: |

@@ -69,7 +69,7 @@ def send_telegram_message(message):
     except Exception as e:
         print(f"[{now_ist()}] Exception sending Telegram message: {e}")
 
-def scrape_bms(url=DEFAULT_URL):
+def scrape_bms(url=DEFAULT_URL, proxy=None):
     """Scrapes BookMyShow showtimes, filters by keywords, and detects new slots."""
     print(f"\n[{now_ist()}] Starting BookMyShow scrape execution...")
     
@@ -78,7 +78,11 @@ def scrape_bms(url=DEFAULT_URL):
     all_current_slots = set()
 
     with Stealth().use_sync(sync_playwright()) as p:
-        browser = p.chromium.launch(headless=True)
+        launch_kwargs = {"headless": True}
+        if proxy:
+            launch_kwargs["proxy"] = {"server": proxy}
+            print(f"[{now_ist()}] Routing browser traffic through proxy: {proxy}")
+        browser = p.chromium.launch(**launch_kwargs)
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
@@ -236,21 +240,22 @@ def main():
     parser.add_argument("--schedule", action="store_true", help="Run in scheduled mode")
     parser.add_argument("--interval", type=int, default=10, help="Scheduler interval in minutes (default: 10)")
     parser.add_argument("--url", type=str, default=DEFAULT_URL, help="Custom BookMyShow tickets URL to scrape")
+    parser.add_argument("--proxy", type=str, default=None, help="Proxy server URL (e.g. socks5://127.0.0.1:40000)")
     args = parser.parse_args()
 
     if args.schedule:
         print(f"[{now_ist()}] Starting scheduler to check every {args.interval} minutes...")
         scheduler = BlockingScheduler()
         # Run immediately on start
-        scrape_bms(args.url)
+        scrape_bms(args.url, args.proxy)
         # Schedule to run every specified interval in minutes
-        scheduler.add_job(scrape_bms, 'interval', minutes=args.interval, args=[args.url])
+        scheduler.add_job(scrape_bms, 'interval', minutes=args.interval, args=[args.url, args.proxy])
         try:
             scheduler.start()
         except (KeyboardInterrupt, SystemExit):
             print(f"\n[{now_ist()}] Scheduler stopped.")
     else:
-        scrape_bms(args.url)
+        scrape_bms(args.url, args.proxy)
 
 if __name__ == "__main__":
     main()
