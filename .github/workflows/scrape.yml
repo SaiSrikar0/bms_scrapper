@@ -2,8 +2,8 @@ name: BookMyShow Hourly Scraper
 
 on:
   schedule:
-    # Run every hour at minute 0
-    - cron: '0 * * * *'
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
   workflow_dispatch:
     # Allows manual triggering from the Actions tab
 
