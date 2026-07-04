@@ -46,39 +46,31 @@ def save_seen_slots(seen_slots):
     except Exception as e:
         print(f"[{datetime.now()}] Error saving seen slots: {e}")
 
-def send_telegram_alert(new_slots):
-    """Sends a Telegram alert if new showtime slots are found."""
+def send_telegram_message(message):
+    """Sends any message to Telegram."""
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
-        print(f"[{datetime.now()}] Telegram settings not configured (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID missing). Skipping notification.")
+        print(f"[{datetime.now()}] Telegram not configured. Skipping notification.")
         return
-
-    print(f"[{datetime.now()}] Sending Telegram alert for new slots...")
-    
-    # Format message
-    message = f"🚨 *New BookMyShow Slots Opened!* 🚨\n\n"
-    for venue_name, detail in new_slots:
-        message += f"📍 *{venue_name}*\n  {detail}\n\n"
-    
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"
-    }
+    payload = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
     try:
         response = requests.post(url, json=payload, timeout=15)
         if response.status_code == 200:
-            print(f"[{datetime.now()}] Telegram alert sent successfully.")
+            print(f"[{datetime.now()}] Telegram message sent successfully.")
         else:
-            print(f"[{datetime.now()}] Failed to send Telegram alert: {response.text}")
+            print(f"[{datetime.now()}] Failed to send Telegram message: {response.text}")
     except Exception as e:
-        print(f"[{datetime.now()}] Exception encountered while sending Telegram alert: {e}")
+        print(f"[{datetime.now()}] Exception sending Telegram message: {e}")
 
 def scrape_bms(url=DEFAULT_URL):
     """Scrapes BookMyShow showtimes, filters by keywords, and detects new slots."""
+    now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
     print(f"\n[{datetime.now()}] Starting BookMyShow scrape execution...")
+    
+    # Always notify that the scraper ran
+    send_telegram_message(f"🤖 *BMS Scraper ran* at {now_str}")
     
     seen_slots = load_seen_slots()
     new_slots_found = []
@@ -208,10 +200,14 @@ def scrape_bms(url=DEFAULT_URL):
                     print(f"  [{venue_name}] {detail}")
                 print("****************************************")
                 
-                # Send optional Telegram alert
-                send_telegram_alert(new_slots_found)
+                # Build and send new-slots alert
+                alert_msg = f"🚨 *New BookMyShow Slots Opened!* 🚨\n\n"
+                for venue_name, detail in new_slots_found:
+                    alert_msg += f"📍 *{venue_name}*\n  {detail}\n\n"
+                send_telegram_message(alert_msg)
             else:
                 print(f"\n[{datetime.now()}] No new time slots detected.")
+                send_telegram_message("😴 *Nothing new* — no new slots found.")
 
             # Save the updated seen slots list
             save_seen_slots(all_current_slots)
