@@ -95,8 +95,12 @@ def scrape_bms(url=DEFAULT_URL):
             print(f"[{datetime.now()}] Loading tickets page: {url}")
             page.goto(url, wait_until="domcontentloaded", timeout=60000)
             
-            # Wait for content rendering/APIs
-            page.wait_for_timeout(5000)
+            # Wait for JS to finish rendering the state
+            page.wait_for_timeout(8000)
+            
+            # Debug: print current URL (BMS may redirect to a bot-check page)
+            print(f"[{datetime.now()}] Current page URL: {page.url}")
+            
             html_content = page.content()
             
             # Extract JSON state

@@ -40,12 +40,16 @@ jobs:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: |
-        python web_scrapper.py
+        python web_scrapper.py || true
 
     - name: Commit and Push Changes
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        # Create seen_slots.json if the scraper didn't produce one (e.g. BMS blocked)
+        if [ ! -f seen_slots.json ]; then
+          echo '[]' > seen_slots.json
+        fi
         git add seen_slots.json
         # Commit only if seen_slots.json has changes, to avoid empty commits
         if git diff-index --quiet HEAD -- seen_slots.json; then
