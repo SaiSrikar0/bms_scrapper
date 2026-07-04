@@ -5,6 +5,8 @@ import os
 import argparse
 from datetime import datetime
 # pyrefly: ignore [missing-import]
+import requests
+# pyrefly: ignore [missing-import]
 from bs4 import BeautifulSoup
 # pyrefly: ignore [missing-import]
 from playwright.sync_api import sync_playwright
@@ -38,6 +40,36 @@ def save_seen_slots(seen_slots):
             json.dump(list(seen_slots), f, indent=4)
     except Exception as e:
         print(f"[{datetime.now()}] Error saving seen slots: {e}")
+
+def send_telegram_alert(new_slots):
+    """Sends a Telegram alert if new showtime slots are found."""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        print(f"[{datetime.now()}] Telegram settings not configured (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID missing). Skipping notification.")
+        return
+
+    print(f"[{datetime.now()}] Sending Telegram alert for new slots...")
+    
+    # Format message
+    message = f"🚨 *New BookMyShow Slots Opened!* 🚨\n\n"
+    for venue_name, detail in new_slots:
+        message += f"📍 *{venue_name}*\n  {detail}\n\n"
+    
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+    try:
+        response = requests.post(url, json=payload, timeout=15)
+        if response.status_code == 200:
+            print(f"[{datetime.now()}] Telegram alert sent successfully.")
+        else:
+            print(f"[{datetime.now()}] Failed to send Telegram alert: {response.text}")
+    except Exception as e:
+        print(f"[{datetime.now()}] Exception encountered while sending Telegram alert: {e}")
 
 def scrape_bms(url=DEFAULT_URL):
     """Scrapes BookMyShow showtimes, filters by keywords, and detects new slots."""
@@ -160,12 +192,15 @@ def scrape_bms(url=DEFAULT_URL):
                     for show_info in matched_shows_info:
                         print(f"  - {show_info}")
 
-            # Highlight new slots
+            # Highlight and alert new slots
             if new_slots_found:
                 print(f"\n*** [{datetime.now()}] NEW TIME SLOTS OPENED! ***")
                 for venue_name, detail in new_slots_found:
                     print(f"  [{venue_name}] {detail}")
                 print("****************************************")
+                
+                # Send optional Telegram alert
+                send_telegram_alert(new_slots_found)
             else:
                 print(f"\n[{datetime.now()}] No new time slots detected.")
 
