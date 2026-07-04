@@ -99,7 +99,9 @@ def scrape_bms(url=DEFAULT_URL):
             # Extract JSON state
             match = re.search(r"window\.__INITIAL_STATE__\s*=\s*(\{.*\});?", html_content)
             if not match:
-                print(f"[{now_ist()}] Error: Could not find window.__INITIAL_STATE__ in page source.")
+                err_msg = "⚠️ *Scraper Error* — Could not parse showtimes (likely blocked by BookMyShow bot protection on Cloud)."
+                print(f"[{now_ist()}] {err_msg}")
+                send_telegram_message(err_msg)
                 return
 
             state_data = json.loads(match.group(1))
@@ -215,7 +217,9 @@ def scrape_bms(url=DEFAULT_URL):
             save_seen_slots(all_current_slots)
 
         except Exception as e:
-            print(f"[{now_ist()}] Scraping exception encountered: {e}")
+            err_msg = f"⚠️ *Scraper Error* — Exception encountered: {e}"
+            print(f"[{now_ist()}] {err_msg}")
+            send_telegram_message(err_msg)
         finally:
             browser.close()
             print(f"[{now_ist()}] Scrape execution finished.\n")
