@@ -88,13 +88,20 @@ def scrape_bms(url=DEFAULT_URL):
             print(f"[{now_ist()}] Loading tickets page: {url}")
             page.goto(url, wait_until="domcontentloaded", timeout=60000)
             
-            # Wait for JS to finish rendering the state
-            page.wait_for_timeout(8000)
+            # Wait for window.__INITIAL_STATE__ to load dynamically (up to 30 seconds)
+            print(f"[{now_ist()}] Waiting for window.__INITIAL_STATE__ to render...")
+            html_content = ""
+            found_state = False
+            for i in range(30):
+                html_content = page.content()
+                if "window.__INITIAL_STATE__" in html_content:
+                    found_state = True
+                    print(f"[{now_ist()}] window.__INITIAL_STATE__ found after {i} seconds.")
+                    break
+                page.wait_for_timeout(1000)
             
-            # Debug: print current URL (BMS may redirect to a bot-check page)
-            print(f"[{now_ist()}] Current page URL: {page.url}")
-            
-            html_content = page.content()
+            # Debug: print current URL & Title
+            print(f"[{now_ist()}] Current page URL: {page.url} | Title: {page.title()}")
             
             # Extract JSON state
             match = re.search(r"window\.__INITIAL_STATE__\s*=\s*(\{.*\});?", html_content)
