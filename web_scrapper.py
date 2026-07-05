@@ -162,8 +162,6 @@ def scrape_bms(url=DEFAULT_URL, proxy=None):
 
                 # Filter: Theatre Match
                 is_theatre_match = any(kw in venue_name_lower for kw in THEATRE_KEYWORDS)
-                if not is_theatre_match:
-                    continue
 
                 showtimes = item.get("showtimes", [])
                 matched_shows_info = []
@@ -186,6 +184,15 @@ def scrape_bms(url=DEFAULT_URL, proxy=None):
                     )
                     
                     if not is_format_match:
+                        continue
+
+                    # If this is not a matched theatre, we ONLY allow it if it has the "barco" format.
+                    is_barco_format = (
+                        "barco" in screen_attr_lower or
+                        any("barco" in desc for desc in price_desc_list)
+                    )
+
+                    if not is_theatre_match and not is_barco_format:
                         continue
 
                     # Construct unique identifier for this slot
